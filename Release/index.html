@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>투자분석 AI 추천시스템</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --primary: #4f46e5; --bg: #f1f5f9; --card: #ffffff; --text: #0f172a; --sub: #64748b; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; }
+        
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; justify-content: center; -webkit-font-smoothing: antialiased; }
+        .container { width: 100%; max-width: 1150px; background: white; padding: 35px; border-radius: 28px; box-shadow: 0 20px 50px rgba(0,0,0,0.05); box-sizing: border-box; }
+        
+        .header { text-align: center; margin-bottom: 35px; }
+        .header h1 { color: var(--primary); margin: 0; font-size: 1.8rem; font-weight: 900; letter-spacing: -0.5px; }
+        .header p { color: var(--sub); margin: 8px 0 0 0; font-weight: 600; font-size: 0.95rem; }
+
+        .input-box { display: flex; gap: 12px; position: relative; margin-bottom: 35px; }
+        .search-wrap { position: relative; flex: 1; }
+        input { width: 100%; padding: 18px 25px; border: 2px solid #e2e8f0; border-radius: 18px; font-size: 1rem; outline: none; transition: 0.3s; box-sizing: border-box; }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); }
+        button { background: var(--primary); color: white; border: none; padding: 0 40px; border-radius: 18px; font-weight: 800; cursor: pointer; transition: 0.2s; white-space: nowrap; }
+        button:hover { background: #4338ca; transform: translateY(-2px); }
+        
+        /* Dashboard Grids */
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .card { padding: 20px; background: #fff; border-radius: 20px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.02); box-sizing: border-box; }
+        .card-label { font-size: 0.8rem; color: var(--sub); font-weight: 700; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .card-value { font-size: 1.25rem; font-weight: 900; }
+        
+        /* Search Suggestions */
+        .suggestions { position: absolute; top: 100%; left: 0; right: 0; background: white; border-radius: 15px; box-shadow: 0 15px 30px rgba(0,0,0,0.12); z-index: 100; display: none; border: 1px solid #e2e8f0; max-height: 350px; overflow-y: auto; margin-top: 8px; }
+        .suggestion-item { padding: 15px 25px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f8fafc; }
+        .suggestion-item:hover { background: #f1f5f9; }
+
+        #result-area { display: none; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .loading { display: none; text-align: center; padding: 50px; font-weight: 800; color: var(--primary); font-size: 1.1rem; }
+        .chart-wrap { height: 400px; margin-top: 25px; background: #fff; padding: 20px; border-radius: 24px; border: 1px solid #e2e8f0; position: relative; }
+        
+        .theme-card { background: white; border: 1px solid #e2e8f0; padding: 20px; border-radius: 20px; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.03); }
+        .theme-card:hover { transform: translateY(-5px); border-color: var(--primary); box-shadow: 0 10px 20px rgba(0,0,0,0.06); }
+        
+        .top-3-item { background: rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 18px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; margin-bottom: 12px; transition: 0.2s; border: 1px solid rgba(255,255,255,0.1); }
+        .top-3-item:hover { background: rgba(255, 255, 255, 0.15); border-color: #fbbf24; }
+
+        /* News Cards */
+        #news-list { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+        /* Mobile Optimization */
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .container { padding: 20px; border-radius: 20px; }
+            .header h1 { font-size: 1.5rem; }
+            
+            .input-box { flex-direction: column; gap: 8px; }
+            button { padding: 18px; width: 100%; }
+            
+            .dashboard { grid-template-columns: 1fr; }
+            #smart-money-area { grid-template-columns: 1fr !important; }
+            .dashboard[style*="grid-template-columns: repeat(4, 1fr)"] { grid-template-columns: 1fr 1fr !important; }
+            
+            #top-3-recommendations { padding: 20px; border-radius: 20px; }
+            #top-3-recommendations h2 { font-size: 1rem; flex-direction: column; align-items: flex-start; gap: 8px; }
+            #top-3-recommendations > div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+            
+            #news-list { grid-template-columns: 1fr; }
+            .chart-wrap { height: 300px; padding: 10px; }
+            
+            #undervalued-recommendations { padding: 20px; border-radius: 20px; }
+            #undervalued-recommendations h3 { font-size: 1rem; flex-direction: column; align-items: flex-start; }
+            
+            .theme-card { padding: 15px; }
+            
+            #disp-name div { flex-direction: column; align-items: flex-start !important; gap: 5px !important; }
+            #disp-name h2 { font-size: 1.5rem !important; }
+            #disp-name span { font-size: 1rem !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>INVESTMENT AI PRO v4.0</h1>
+            <p>전지표 통합분석 및 가치투자 10대 지표 엔진</p>
+        </div>
+
+        <div class="input-box">
+            <div class="search-wrap">
+                <input type="text" id="symbol" placeholder="종목명 또는 티커 (삼성전자, NVDA)" oninput="handleSearch(this.value)" onkeydown="if(event.key === 'Enter') runAnalysis()" autocomplete="off">
+                <div id="suggestions" class="suggestions"></div>
+            </div>
+            <button onclick="runAnalysis()">분석 리포트 생성</button>
+        </div>
+
+        <!-- 최우수 추천 TOP 3 -->
+        <div id="top-3-recommendations" style="margin-bottom: 40px; padding: 30px; background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%); border-radius: 28px; color: white;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                <h2 style="margin: 0; font-size: 1.2rem; display: flex; align-items: center; gap: 12px;">
+                    <span style="background: #fbbf24; color: #78350f; padding: 5px 12px; border-radius: 10px; font-size: 0.75rem; font-weight: 900;">GLOBAL BEST</span>
+                    시장별 AI 최우수 추천 TOP 3
+                </h2>
+                <div id="macro-indicators" style="display: flex; gap: 10px;"></div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
+                <div id="domestic-list">
+                    <h4 style="margin: 0 0 15px 0; font-size: 0.9rem; opacity: 0.8;">KOSPI / KOSDAQ</h4>
+                    <div id="dom-items"><div style="text-align:center; opacity:0.5; padding: 20px;">AI 엔진 가동 중...</div></div>
+                </div>
+                <div id="us-list">
+                    <h4 style="margin: 0 0 15px 0; font-size: 0.9rem; opacity: 0.8;">US MARKET</h4>
+                    <div id="us-items"><div style="text-align:center; opacity:0.5; padding: 20px;">AI 엔진 가동 중...</div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 테마별 1순위 -->
+        <div id="theme-recommendations" style="margin-bottom: 40px;">
+            <h3 style="margin-bottom: 20px; font-size: 1.1rem; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                <span style="width: 8px; height: 18px; background: var(--primary); border-radius: 4px;"></span>
+                섹터별 AI 상승 예측 1순위
+            </h3>
+            <div id="theme-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px;"></div>
+        </div>
+
+        <div id="loader" class="loading">🚀 전문가용 심층 분석 리포트 생성 중...</div>
+
+        <!-- 상세 분석 결과 -->
+        <div id="result-area">
+            <div id="disp-name" style="margin-bottom:20px;"></div>
+            
+            <div class="dashboard">
+                <div class="card" style="border-left: 6px solid var(--primary);"><div class="card-label">현재가</div><div class="card-value" id="curr-price">0</div></div>
+                <div class="card" style="border-left: 6px solid var(--warning);"><div class="card-label">주도세력</div><div class="card-value" id="trading-leader" style="font-size:1.1rem;">-</div></div>
+                <div class="card" style="border-left: 6px solid #8b5cf6;"><div class="card-label">AI 종합의견</div><div class="card-value" id="ai-signal">-</div></div>
+            </div>
+
+            <div class="dashboard" id="smart-money-area" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="card"><div class="card-label">🏠 위블 개인</div><div class="card-value" id="webull-flow" style="font-size:1.1rem;">-</div></div>
+                <div class="card"><div class="card-label">🐋 큰손(Whales)</div><div class="card-value" id="whales-flow" style="font-size:1.1rem;">-</div></div>
+                <div class="card"><div class="card-label">🏛️ 헤지펀드</div><div class="card-value" id="hf-flow" style="font-size:1.1rem;">-</div></div>
+            </div>
+
+            <div class="dashboard" style="grid-template-columns: repeat(4, 1fr);">
+                <div class="card"><div class="card-label">RSI</div><div class="card-value" id="rsi-val" style="font-size:1rem;">-</div></div>
+                <div class="card"><div class="card-label">스토캐스틱</div><div class="card-value" id="stoch-val" style="font-size:1rem;">-</div></div>
+                <div class="card"><div class="card-label">주요 매물대</div><div class="card-value" id="poc-val" style="font-size:0.85rem;">-</div></div>
+                <div class="card"><div class="card-label">추세(주/월)</div><div class="card-value" id="trends-val" style="font-size:0.85rem;">-</div></div>
+            </div>
+
+            <div class="chart-wrap"><canvas id="stockChart"></canvas></div>
+            
+            <div id="supply-text" style="margin-top:25px;"></div>
+            
+            <div style="margin-top: 30px;">
+                <h3 style="font-size: 1.1rem; color: #1e293b; margin-bottom: 15px;">📰 실시간 관련 주요 뉴스</h3>
+                <div id="news-list"></div>
+            </div>
+        </div>
+
+        <!-- 저평가 우량주 추천 -->
+        <div id="undervalued-recommendations" style="margin-top: 60px; padding: 35px; background: #f8fafc; border-radius: 32px; border: 2px solid #e2e8f0;">
+            <h3 style="margin-bottom: 25px; font-size: 1.2rem; color: #1e293b; display: flex; align-items: center; gap: 10px;">
+                <span style="background: #10b981; color: white; padding: 5px 15px; border-radius: 12px; font-size: 0.8rem; font-weight: 900;">VALUE CHIP</span>
+                AI 선정 저평가 우량주 (가치투자 10대 지표 분석)
+            </h3>
+            <div id="undervalued-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
+                <div style="grid-column: 1/-1; text-align: center; color: var(--sub); padding: 40px;">재무 지표 스캔 중...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chartInstance = null; let searchTimeout = null;
+        function selectStock(n) { document.getElementById('symbol').value = n; document.getElementById('suggestions').style.display='none'; runAnalysis(); window.scrollTo({top: 0, behavior: 'smooth'}); }
+        
+        async function handleSearch(q) {
+            clearTimeout(searchTimeout); if (!q) { document.getElementById('suggestions').style.display='none'; return; }
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/search?q=${encodeURIComponent(q)}`);
+                    const data = await res.json();
+                    if (data.length > 0) {
+                        document.getElementById('suggestions').innerHTML = data.map(s => `<div class="suggestion-item" onclick="selectStock('${s.name}')"><div><b style="color:var(--primary);">${s.name}</b> <small style="color:var(--sub); margin-left:8px;">${s.ticker}</small></div><span style="font-size:0.7rem; color:white; background:#94a3b8; padding:2px 6px; border-radius:4px;">${s.theme}</span></div>`).join('');
+                        document.getElementById('suggestions').style.display = 'block';
+                    } else { document.getElementById('suggestions').style.display = 'none'; }
+                } catch(e) {}
+            }, 200);
+        }
+
+        async function loadTopRecommendations() {
+            try {
+                const res = await fetch(`/top-recommendations`);
+                const data = await res.json();
+                const render = (list) => list.map((s, idx) => `<div class="top-3-item" onclick="selectStock('${s.name}')"><div style="display:flex; align-items:center; gap:12px;"><span style="font-weight:900; color:#fbbf24; font-size:1.2rem;">0${idx+1}</span><div><div style="font-weight:800; font-size:1rem;">${s.name}</div><div style="font-size:0.7rem; opacity:0.7;">${s.ticker}</div></div></div><div style="text-align:right;"><div style="color:#34d399; font-weight:900; font-size:1.1rem;">${s.probability}% ↑</div><div style="font-size:0.75rem; color:#fbbf24; font-weight:700;">매수: ${s.buy_price}</div></div></div>`).join('');
+                document.getElementById('dom-items').innerHTML = render(data.domestic);
+                document.getElementById('us-items').innerHTML = render(data.us);
+                document.getElementById('macro-indicators').innerHTML = `<div style="background:rgba(255,255,255,0.15); padding:4px 10px; border-radius:8px; font-size:0.7rem;">시장 데이터 동기화 완료</div>`;
+            } catch(e) {}
+        }
+
+        async function loadUndervalued() {
+            try {
+                const res = await fetch(`/top-undervalued`);
+                const data = await res.json();
+                if (data.length > 0) {
+                    document.getElementById('undervalued-list').innerHTML = data.map(s => `
+                        <div class="theme-card" onclick="selectStock('${s.name}')">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                                <b>${s.name}</b>
+                                <span style="color:var(--success); font-weight:900;">${s.score}/10</span>
+                            </div>
+                            <div style="font-size:1.1rem; font-weight:900; color:var(--text); margin:10px 0;">${s.current_price}</div>
+                            <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                                ${s.details.map(d => `<span style="font-size:0.65rem; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:var(--sub); border:1px solid #e2e8f0;">${d}</span>`).join('')}
+                            </div>
+                        </div>`).join('');
+                }
+            } catch(e) {}
+        }
+
+        async function loadThemes() {
+            const targets = await (await fetch(`/recommendation-targets`)).json();
+            targets.forEach(s => {
+                fetch(`/recommendation-analyze/${s.ticker}`).then(r => r.json()).then(d => {
+                    if (d) document.getElementById('theme-list').insertAdjacentHTML('beforeend', `<div class="theme-card" onclick="selectStock('${s.name}')"><div style="font-size:0.7rem; color:var(--sub); margin-bottom:4px;">${s.theme}</div><div style="font-weight:800;">${s.name}</div><div style="color:var(--success); font-weight:900; font-size:1.1rem; margin-top:8px;">${d.probability}% ↑</div><div style="font-size:0.75rem; opacity:0.8; margin-top:4px;">${d.current_price}</div></div>`);
+                });
+            });
+        }
+
+        window.onload = () => { loadTopRecommendations(); loadUndervalued(); loadThemes(); };
+
+        async function runAnalysis() {
+            const input = document.getElementById('symbol').value; if (!input) return;
+            document.getElementById('loader').style.display='block'; document.getElementById('result-area').style.display='none';
+            try {
+                const res = await fetch(`/analyze/${encodeURIComponent(input)}`);
+                const d = await res.json(); if (!res.ok) throw new Error(d.detail);
+                document.getElementById('disp-name').innerHTML = `
+                    <div style="display:flex; align-items:flex-end; gap:12px;">
+                        <h2 style="margin:0; font-size:2rem; font-weight:900;">${d.name}</h2>
+                        <span style="color:var(--danger); font-weight:900; font-size:1.2rem; margin-bottom:5px;">상승 확률 ${d.probability}% ↑</span>
+                        <small style="color:var(--sub); margin-bottom:8px;">${d.ticker} | ${d.last_updated}</small>
+                    </div>`;
+                document.getElementById('curr-price').innerText = d.current_price;
+                document.getElementById('trading-leader').innerText = d.leading_party;
+                document.getElementById('ai-signal').innerText = d.signal;
+                document.getElementById('ai-signal').style.color = d.signal_color;
+                const sm = d.smart_money || {};
+                document.getElementById('webull-flow').innerText = sm.webull[0]; document.getElementById('webull-flow').style.color = sm.webull[1];
+                document.getElementById('whales-flow').innerText = sm.whales[0]; document.getElementById('whales-flow').style.color = sm.whales[1];
+                document.getElementById('hf-flow').innerText = sm.hedge_funds[0]; document.getElementById('hf-flow').style.color = sm.hedge_funds[1];
+                const m = d.metrics || {};
+                document.getElementById('rsi-val').innerText = `${m.rsi} (${m.rsi < 40 ? '과매도' : (m.rsi > 70 ? '과매수' : '안정')})`;
+                document.getElementById('stoch-val').innerText = `${m.stoch_k}/${m.stoch_d}`;
+                document.getElementById('poc-val').innerText = m.poc;
+                document.getElementById('trends-val').innerText = `${m.weekly_trend} / ${m.monthly_trend}`;
+                document.getElementById('supply-text').innerHTML = d.analysis_note;
+                document.getElementById('news-list').innerHTML = d.news.map(n => `
+                    <div class="card" style="padding:15px; border-radius:15px;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                            <span style="font-size:0.7rem; font-weight:900; color:var(--primary); background:#eef2ff; padding:2px 8px; border-radius:6px;">${n.source}</span>
+                            <div style="width:8px; height:8px; border-radius:50%; background:${n.sentiment === 'positive' ? '#10b981' : '#ef4444'};"></div>
+                        </div>
+                        <div style="font-size:0.9rem; font-weight:700; line-height:1.4;">${n.title}</div>
+                    </div>`).join('');
+                renderChart(d.chart_data);
+                document.getElementById('loader').style.display='none'; document.getElementById('result-area').style.display='block';
+                setTimeout(() => { document.getElementById('result-area').scrollIntoView({behavior: 'smooth', block: 'start'}); }, 100);
+            } catch(e) { alert(e.message); document.getElementById('loader').style.display='none'; }
+        }
+
+        function renderChart(cd) {
+            const ctx = document.getElementById('stockChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: cd.labels,
+                    datasets: [
+                        { label: '주가', data: cd.prices, borderColor: '#4f46e5', borderWidth: 3, tension: 0.3, pointRadius: 0, fill: false },
+                        { label: '5일', data: cd.ma5, borderColor: '#10b981', borderDash: [3,3], pointRadius: 0, fill: false },
+                        { label: '20일', data: cd.ma20, borderColor: '#f59e0b', borderDash: [3,3], pointRadius: 0, fill: false },
+                        { label: '밴드상단', data: cd.upper, borderColor: 'rgba(239, 68, 68, 0.1)', backgroundColor: 'rgba(239, 68, 68, 0.05)', pointRadius: 0, fill: '+1' },
+                        { label: '밴드하단', data: cd.lower, borderColor: 'rgba(16, 185, 129, 0.1)', pointRadius: 0, fill: false }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } }, scales: { x: { grid: { display: false }, ticks: { font: { size: 10 } } }, y: { beginAtZero: false, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } } } }
+            });
+        }
+    </script>
+</body>
+</html>
